@@ -1,0 +1,11 @@
+{
+    "display_name": "Apple Glass 2",
+    "description": "Apple Glass UI、配套主题与版本更新。支持 SillyTavern 和 TauriTavern。",
+    "loading_order": 20,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "author": "server-agent",
+    "version": "1.0.0",
+    "auto_update": false
+}

@@ -1,0 +1,13 @@
+Apple Glass 2 — third-party notices
+
+项目：https://github.com/Camvanaa/sillytavern-apple-glass
+此文件说明第三方资源许可，不另行为项目自身代码指定新许可证。
+
+Lucide icons
+来源：https://lucide.dev / https://github.com/lucide-icons/lucide
+源码头部归属：Copyright (c) Lucide Contributors.
+许可证全文：licenses/lucide-LICENSE.txt（ISC 及所含 Feather 派生图标的 MIT 通知）。
+
+SillyTavern
+本包为 SillyTavern 的主题与扩展，未附带 SillyTavern 核心程序。
+项目：https://github.com/SillyTavern/SillyTavern
