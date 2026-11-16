@@ -1,6 +1,6 @@
 # Apple Glass 2
 
-Build: `20261116TT08`
+Build: `20261116TT09`
 
 在 SillyTavern / TauriTavern 的扩展管理中使用本仓库 URL 安装。
 在扩展设置的 Apple Glass 2 区点击“导入配套主题”，重载后选择 Apple Glass 2。
