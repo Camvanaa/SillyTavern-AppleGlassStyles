@@ -1,8 +1,7 @@
 {
   "schema": 1,
-  "build": "20261116TT03",
-  "sourceCommit": "2170adf0d4bb376316966ddf9ee9472bb7ea3464",
+  "build": "20261116TT04",
+  "sourceCommit": "51ac5d6521ff9aff5c6b639775a2be6572fee26d",
   "installUrl": "https://github.com/Camvanaa/SillyTavern-AppleGlassStyles",
-  "themeSha256": "3cade501b411ce29f9309dd43fb9166f83ad82831b213eed97a8c0668e9b0629",
-  "themeUrl": "https://tt.camvan.xyz/apple-glass/releases/2170adf0d4bb376316966ddf9ee9472bb7ea3464/apple-glass-2.json"
+  "themeSha256": "3cade501b411ce29f9309dd43fb9166f83ad82831b213eed97a8c0668e9b0629"
 }
