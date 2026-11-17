@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "build": "20261116TT10",
-  "sourceCommit": "3e488dbeee078bf2551aa4bea233778b369b8f08",
+  "build": "20261117TT14",
+  "sourceCommit": "77418bdefa166bfbea9ed77f8bf41c6770e5160a",
   "installUrl": "https://github.com/Camvanaa/SillyTavern-AppleGlassStyles",
-  "themeSha256": "3cade501b411ce29f9309dd43fb9166f83ad82831b213eed97a8c0668e9b0629"
+  "themeSha256": "71d803f3723c1f205d7f3a10a84a862b79b353e275fc1b09ac5ec8c78c814789"
 }

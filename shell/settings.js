@@ -19,14 +19,14 @@
 // the sheet below the head (same CSS variables as the window). Drag the grabber / head down
 // to dismiss.
 
-import { ctx, h, guard, closeSelect2s, toggleDrawer, SET_PANELS, pageOfPanel, isPhone, thumb, personaAvatar, nativeSelectOpen, paintRanges, paintOneRange, current } from './util.js?v=20261116TT10';
+import { ctx, h, guard, closeSelect2s, toggleDrawer, SET_PANELS, pageOfPanel, isPhone, thumb, personaAvatar, nativeSelectOpen, paintRanges, paintOneRange, current, flag } from './util.js?v=20261117TT14';
 // linked to the running shell? (util.current)
-export { SHELL } from './util.js?v=20261116TT10';
-import { icon } from './icons.js?v=20261116TT10';
-import { local, appearance, setAppearance, ACCENTS, READ_SIZE, READ_WIDTH } from './store.js?v=20261116TT10';
-import { isMenuOpen } from './menu.js?v=20261116TT10';
-import { renderUpdates } from './updates.js?v=20261116TT10';
-import { isTauri, renderTauriSettings } from './tauri-settings.js?v=20261116TT10';
+export { SHELL } from './util.js?v=20261117TT14';
+import { icon } from './icons.js?v=20261117TT14';
+import { local, appearance, setAppearance, ACCENTS, READ_SIZE, READ_WIDTH } from './store.js?v=20261117TT14';
+import { isMenuOpen } from './menu.js?v=20261117TT14';
+import { renderUpdates } from './updates.js?v=20261117TT14';
+import { isTauri, renderTauriSettings } from './tauri-settings.js?v=20261117TT14';
 
 const PAGES = [
     { id: 'api', name: '连接', icon: 'plug', tile: 'green', group: 0, lead: '选择 API 来源，填写地址、密钥和模型。' },
@@ -167,27 +167,40 @@ const stEvents = [];
 let selectObserver = null;
 const selectButtons = new Set();
 
-function clearSelects() {
+function stopSelects() {
     selectObserver?.disconnect();
     selectObserver = null;
+}
+
+function clearSelects() {
+    stopSelects();
     for (const button of selectButtons) button.remove();
     selectButtons.clear();
 }
 
 function watchSelects(container) {
-    clearSelects();
+    // Keep native selectedcontent buttons while this window is alive. Recreating
+    // them on each page switch invalidates the drawer just as its slide starts.
+    // Only the active page is observed; close/unmount removes all owned buttons.
+    stopSelects();
     if (!container || !CSS.supports('appearance', 'base-select') || !('HTMLSelectedContentElement' in window)) return;
-    const enhance = () => {
+    const selector = 'select:not([multiple]):not([size]):not(.select2-hidden-accessible)';
+    const enhance = candidates => {
         for (const button of selectButtons) {
-            if (!button.isConnected || !button.parentElement.matches('select:not([multiple]):not([size]):not(.select2-hidden-accessible)')) {
+            if (!button.isConnected || !button.parentElement.matches(selector)) {
                 button.remove();
                 selectButtons.delete(button);
             }
         }
         // Read every appearance before writing any button: a style read after each insertion
         // restyles the whole document once per select (seconds on 通用 / a full 世界书).
-        const selects = [...container.querySelectorAll('select:not([multiple]):not([size]):not(.select2-hidden-accessible)')]
-            .filter(select => getComputedStyle(select).appearance === 'base-select');
+        const selects = [...candidates].filter(select => {
+            if (!container.contains(select) || !select.matches(selector)) return false;
+            const button = select.querySelector(':scope > button');
+            // Updating an option's text/value does not change a select's appearance.
+            // Reuse the known native control without forcing style/layout again.
+            return button ? selectButtons.has(button) : getComputedStyle(select).appearance === 'base-select';
+        });
         for (const select of selects) {
             let button = select.querySelector(':scope > button');
             if (button && !selectButtons.has(button)) continue; // respect another owner's custom select
@@ -205,17 +218,29 @@ function watchSelects(container) {
             if (chosen.innerHTML !== html) chosen.innerHTML = html;
         }
     };
-    enhance();
+    enhance(container.querySelectorAll(selector));
     selectObserver = new MutationObserver(records => {
-        const relevant = records.some(r => {
+        const candidates = new Set();
+        let removed = false;
+        for (const r of records) {
             const target = r.target.nodeType === Node.ELEMENT_NODE ? r.target : r.target.parentElement;
-            if (target?.closest('selectedcontent')) return false; // the UA's own value mirror
+            if (target?.closest('selectedcontent')) continue; // the UA's own value mirror
             const own = [...r.addedNodes, ...r.removedNodes];
-            if (own.length && own.every(n => n.classList?.contains('ag2-select-button'))) return false; // enhance's own writes
-            if (target?.closest('select')) return true;
-            return [...r.addedNodes, ...r.removedNodes].some(n => n.nodeType === Node.ELEMENT_NODE && (n.matches('select') || n.querySelector('select')));
-        });
-        if (relevant) enhance();
+            if (own.length && own.every(n => n.classList?.contains('ag2-select-button'))) continue;
+            const select = target?.closest('select');
+            if (select) {
+                candidates.add(select);
+                continue;
+            }
+            // Native prompt-manager updates can replace one dropdown repeatedly.
+            // Only inspect that subtree, not every hidden backend dropdown as well.
+            for (const node of r.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.matches('select')) candidates.add(node);
+                for (const child of node.querySelectorAll('select')) candidates.add(child);
+            }
+            if (r.removedNodes.length) removed = true;
+        }
+        if (candidates.size || removed) enhance(candidates);
     });
     selectObserver.observe(container, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['multiple', 'size', 'class'] });
 }
@@ -317,7 +342,7 @@ let results = [];
 
 const loadSearch = async () => {
     if (!searchMod) {
-        const mod = current(await import('./search.js?v=20261116TT10'));
+        const mod = current(await import('./search.js?v=20261117TT14'));
         if (!mod) return null;
         mod.init(PAGES.map(({ id, name, lead }) => ({ id, name, lead })));
         searchMod = mod;
@@ -484,7 +509,10 @@ function renderAnchors(page) {
     const keep = document.body.dataset.ag2Anchors === page && anchorPin != null ? anchorList[anchorPin]?.label : null;
     detachSpy();
     anchorList = [];
-    const def = ANCHORS[page];
+    // The phone sheet hides this desktop-only bar. Measuring every native section
+    // and tracking scroll positions there forced layout without producing any UI.
+    // Crossing the layout breakpoint closes the window; desktop rebuilds on open.
+    const def = !phoneMode && ANCHORS[page];
     const panel = def && document.getElementById(PAGE[page].panel);
     if (def && panel) {
         const seen = new Set();
@@ -638,7 +666,7 @@ export function open(page = null) {
         root.classList.toggle('ag2-set-phone', phone);
         root.dataset.level = 'list';
         opener = document.activeElement instanceof HTMLElement && !root.contains(document.activeElement) ? document.activeElement : null;
-        document.body.classList.add('ag2-set-open');
+        flag.set('ag2-set-open');
         dim.hidden = false;
         root.hidden = false;
         clipDrawers(phone);
@@ -660,7 +688,7 @@ export function list(opt = {}) {
 
 async function listNow({ focus = false } = {}, valid) {
     if (!isOpenNow) return;
-    clearSelects();
+    stopSelects();
     closeSelect2s();
     const was = cur;
     clearTimeout(closeTimer);
@@ -721,7 +749,7 @@ function dragDismiss(handle) {
         const t0 = performance.now();
         let dy = startDy;
         sheetOffset(dy);
-        document.body.classList.add('ag2-sheet-drag');
+        flag.set('ag2-sheet-drag');
         const move = ev => {
             if (ev.pointerId !== pointerId) return;
             dy = Math.max(0, ev.clientY - y0); sheetOffset(dy);
@@ -732,7 +760,7 @@ function dragDismiss(handle) {
             window.removeEventListener('pointercancel', cancel);
             window.removeEventListener('blur', cleanup);
             if (keepPosition !== true) {
-                document.body.classList.remove('ag2-sheet-drag');
+                flag.set('ag2-sheet-drag', false);
                 sheetOffset();
             }
             activeDragCleanup = null;
@@ -759,7 +787,7 @@ function dragDismiss(handle) {
 function settleDrag(from, dismiss) {
     if (document.body.classList.contains('reduced-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches) {
         sheetOffset();
-        document.body.classList.remove('ag2-sheet-drag');
+        flag.set('ag2-sheet-drag', false);
         if (dismiss) close({ motion: false });
         return;
     }
@@ -778,7 +806,7 @@ function settleDrag(from, dismiss) {
         cancelled = true;
         for (const animation of animations) animation.cancel();
         window.removeEventListener('blur', cleanup);
-        document.body.classList.remove('ag2-sheet-drag');
+        flag.set('ag2-sheet-drag', false);
         sheetOffset();
         activeDragCleanup = null;
     };
@@ -801,6 +829,7 @@ export function go(page, opt = {}) {
 
 async function goNow(page, { focus = false } = {}, valid) {
     if (!isOpenNow || !PAGE[page]) return;
+    stopSelects();
     const p = PAGE[page];
     const previous = cur;
     clearTimeout(closeTimer);
@@ -877,7 +906,7 @@ export function sync(id, opened) {
 
 export async function close({ motion = true } = {}) {
     cancelPageMotion();
-    clearSelects();
+    stopSelects();
     closeSelect2s();
     activeDragCleanup?.();
     if (!isOpenNow) return;
@@ -905,7 +934,7 @@ export async function close({ motion = true } = {}) {
     const drained = enqueue(async () => {
         for (const id of openPanels()) await toggleDrawer(id, false);
     });
-    document.body.classList.remove('ag2-set-open', 'ag2-sheet-drag');
+    flag.set('ag2-set-open', false); flag.set('ag2-sheet-drag', false);
     delete document.body.dataset.ag2Set;
     dim.hidden = true;
     root.hidden = true;
@@ -913,7 +942,10 @@ export async function close({ motion = true } = {}) {
     delete document.body.dataset.ag2SetMotion;
     clearSearch();
     await drained;
-    if (ticket === intent && !isOpenNow) clipDrawers(false);
+    if (ticket === intent && !isOpenNow) {
+        clearSelects(); // hidden now: cleanup cannot interrupt the exit animation
+        clipDrawers(false);
+    }
     if (ticket === intent && !isOpenNow && previousOpener?.isConnected) previousOpener.focus({ preventScroll: true });
 }
 
@@ -941,7 +973,7 @@ export function unmount() {
     delete document.body.dataset.ag2Anchors;
     try { const { eventSource } = ctx(); for (const [t, fn] of stEvents) eventSource.removeListener(t, fn); } catch { /* */ }
     stEvents.length = 0;
-    document.body.classList.remove('ag2-set-open', 'ag2-sheet-drag');
+    flag.set('ag2-set-open', false); flag.set('ag2-sheet-drag', false);
     document.body.style.removeProperty('--ag2-sheet-dy');
     delete document.body.dataset.ag2Set;
     clipDrawers(false);
@@ -1035,7 +1067,9 @@ function onKey(e) {
 function renderBody(page) {
     const body = root.querySelector('.ag2-set-body');
     body.replaceChildren();
-    body.scrollTop = 0;
+    // A native page covers the empty shell body. Its scroll reset can wait until
+    // an actual shell page is rendered, avoiding a layout flush during drawer entry.
+    if (page) body.scrollTop = 0;
     if (page === 'look') renderLook(body);
     else if (page === 'about') renderAbout(body);
     else if (page === 'tauri') renderTauriSettings(body);

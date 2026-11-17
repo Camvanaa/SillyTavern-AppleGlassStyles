@@ -10,13 +10,13 @@
 //   #send_form.ag2-has-text               → send key turns accent
 //   #send_form.ag2-multi                  → the island is taller than one line (r 24)
 //   body.ag2-wand-open                    → ST's own #extensionsMenu shown as submenu
-//   body --ag2-dock-h                     → island height, the chat pads its bottom by it
+//   #chat --ag2-dock-h                     → island height, the chat pads its bottom by it
 // Every action is a click on ST's own control (`#option_*`, `#attachFile`, the model
 // <select>), as ST's core does it.
 
-import { icon } from './icons.js?v=20261116TT10';
-import { openMenu, closeMenu, positionPopover } from './menu.js?v=20261116TT10';
-import { ctx, h, guard, clickSt, toggleDrawer, openSettings, busy, onlineStatus } from './util.js?v=20261116TT10';
+import { icon } from './icons.js?v=20261117TT14';
+import { openMenu, closeMenu, positionPopover } from './menu.js?v=20261117TT14';
+import { ctx, h, guard, clickSt, toggleDrawer, openSettings, busy, onlineStatus, flag } from './util.js?v=20261117TT14';
 import { showBookmarksButtons } from '../../../../bookmarks.js';
 
 const NO_CONN_TEXT = '未连接 API — 点此连接';
@@ -89,14 +89,13 @@ export function mount() {
     const chat = document.getElementById('chat');
     const island = document.getElementById('nonQRFormItems');
     if (fs && chat && 'ResizeObserver' in window) {
-        let last = 0;
         ro = new ResizeObserver(() => {
             if (island) form.classList.toggle('ag2-multi', island.getBoundingClientRect().height > 62);
-            const hgt = Math.round(fs.getBoundingClientRect().height);
-            if (hgt === last) return;
+            const hgt = Math.round(fs.getBoundingClientRect().height) + 'px';
+            if (chat.style.getPropertyValue('--ag2-dock-h') === hgt) return;
             const atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 24;
-            last = hgt;
-            document.body.style.setProperty('--ag2-dock-h', hgt + 'px');
+            // on #chat, its only reader (CSS registers it as non-inherited)
+            chat.style.setProperty('--ag2-dock-h', hgt);
             if (atBottom) chat.scrollTop = chat.scrollHeight;
         });
         ro.observe(fs);
@@ -123,7 +122,7 @@ export function unmount() {
     }
     savedNoConn = null;
     document.getElementById('send_form')?.classList.remove('ag2-has-text', 'ag2-multi');
-    document.body.style.removeProperty('--ag2-dock-h');
+    document.getElementById('chat')?.style.removeProperty('--ag2-dock-h');
 }
 
 export function syncText() {
@@ -178,7 +177,7 @@ function toggleWand(btn) {
     wandOpen = true;
     btn?.classList.add('ag2-sub-open');
     const b = document.body;
-    b.classList.add('ag2-wand-open');
+    flag.set('ag2-wand-open');
     // Use the shared popover placer: desktop anchors beside the submenu item; phone stacks
     // above the complete parent menu so no sibling action is covered.
     const phone = b.classList.contains('ag2-phone');
@@ -204,7 +203,7 @@ function closeWand() {
     wandOpen = false;
     wandCleanup?.();
     wandCleanup = null;
-    document.body.classList.remove('ag2-wand-open');
+    flag.set('ag2-wand-open', false);
     document.body.style.removeProperty('--ag2-wand-left');
     document.body.style.removeProperty('--ag2-wand-top');
     const menu = document.getElementById('extensionsMenu');
