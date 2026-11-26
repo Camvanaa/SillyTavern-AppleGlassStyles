@@ -7,6 +7,9 @@
 //   #ag2-plus     (#leftSendForm, first)  → + menu (ST's ☰ and wand are hidden by CSS)
 //   #ag2-model    (#rightSendForm)        → model capsule / list from #model_<source>_select
 //   #ag2-qr-add   (#send_form, after the QR bars) → ghost “+ 快速回复”
+//   #send_form[data-ag2-qr]               → some QR capsule is visible (shows the ghost)
+//   #qr--bar[data-ag2-qr-empty]           → every capsule of the row is hidden by its owner
+//                                           (QR助手, bar toggles): the row closes too
 //   #send_form.ag2-has-text               → send key turns accent
 //   #send_form.ag2-multi                  → the island is taller than one line (r 24)
 //   body.ag2-wand-open                    → ST's own #extensionsMenu shown as submenu
@@ -14,9 +17,9 @@
 // Every action is a click on ST's own control (`#option_*`, `#attachFile`, the model
 // <select>), as ST's core does it.
 
-import { icon } from './icons.js?v=20261117TT15';
-import { openMenu, closeMenu, positionPopover } from './menu.js?v=20261117TT15';
-import { ctx, h, guard, clickSt, toggleDrawer, openSettings, busy, onlineStatus, flag } from './util.js?v=20261117TT15';
+import { icon } from './icons.js?v=20261126TT16';
+import { openMenu, closeMenu, positionPopover } from './menu.js?v=20261126TT16';
+import { ctx, h, guard, clickSt, toggleDrawer, openSettings, busy, onlineStatus, flag } from './util.js?v=20261126TT16';
 import { showBookmarksButtons } from '../../../../bookmarks.js';
 
 const NO_CONN_TEXT = '未连接 API — 点此连接';
@@ -102,9 +105,65 @@ export function mount() {
         if (island) ro.observe(island);
     }
 
+    watchQr(form);
     syncText();
     updateModel();
     return true;
+}
+
+// ------------------------------------------------------------------ QR rows
+// Other extensions hide QR sets / capsules / the whole bar (QR助手 folds them into its own
+// menu). CSS honours those hides; here the row and the ghost follow what is left visible.
+// Only #send_form's children and the bars are observed, never the textarea's inline style.
+const BARS = ':scope > #qr--bar, :scope > #qr-bar';
+let qrMo = null, qrRaf = 0;
+
+function capsuleShown(cap, bar) {
+    for (let n = cap; n && n !== bar; n = n.parentElement) {
+        if (n.hidden || getComputedStyle(n).display === 'none') return false;
+    }
+    return true;
+}
+
+function syncQr() {
+    qrRaf = 0;
+    const form = document.getElementById('send_form');
+    if (!form) return;
+    let any = false;
+    for (const bar of form.querySelectorAll(BARS)) {
+        const caps = bar.querySelectorAll('button, .qr--button');
+        const shown = [...caps].some(cap => capsuleShown(cap, bar));
+        // Rows without any capsule stay with the CSS :has() rule (no attribute to undo).
+        if (caps.length) bar.toggleAttribute('data-ag2-qr-empty', !shown);
+        else bar.removeAttribute('data-ag2-qr-empty');
+        if (shown && getComputedStyle(bar).display !== 'none') any = true;
+    }
+    form.toggleAttribute('data-ag2-qr', any);
+}
+
+function watchQr(form) {
+    const soon = () => { if (!qrRaf) qrRaf = requestAnimationFrame(syncQr); };
+    const observeBars = () => {
+        qrMo.disconnect();
+        qrMo.observe(form, { childList: true });
+        for (const bar of form.querySelectorAll(BARS)) {
+            qrMo.observe(bar, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+        }
+    };
+    qrMo = new MutationObserver(records => {
+        if (records.some(r => r.target === form)) observeBars();
+        soon();
+    });
+    observeBars();
+    syncQr();
+    cleanups.push(() => {
+        qrMo?.disconnect();
+        qrMo = null;
+        if (qrRaf) cancelAnimationFrame(qrRaf);
+        qrRaf = 0;
+        form.removeAttribute('data-ag2-qr');
+        for (const bar of form.querySelectorAll('#qr--bar, #qr-bar')) bar.removeAttribute('data-ag2-qr-empty');
+    });
 }
 
 export function unmount() {

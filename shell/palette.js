@@ -10,17 +10,18 @@
 // Matching: substring first (prefix / word start rank higher), then in-order subsequence;
 // matched characters are bold + underlined. Every action goes through ST's own entry points.
 
-import { icon } from './icons.js?v=20261117TT15';
+import { icon } from './icons.js?v=20261126TT16';
 import { world_names, selected_world_info, METADATA_KEY } from '../../../../world-info.js';
 import {
     ctx, h, guard, toast, thumb, fmtTime, summary, stem, clickSt, openEntry, openCharacter, openGroup,
     openSettings, loadSettings, setInspector, isInspectorOpen, isDesktop, modKeyLabel, modCombo, getShellApi,
     flag,
-} from './util.js?v=20261117TT15';
+} from './util.js?v=20261126TT16';
+import { setAppearance } from './store.js?v=20261126TT16';
 // linked to the running shell? (util.current)
-export { SHELL } from './util.js?v=20261117TT15';
-import { getRecent, openRightMenu } from './sidebar.js?v=20261117TT15';
-import { closeMenu } from './menu.js?v=20261117TT15';
+export { SHELL } from './util.js?v=20261126TT16';
+import { getRecent, openRightMenu } from './sidebar.js?v=20261126TT16';
+import { closeMenu } from './menu.js?v=20261126TT16';
 import { fixToastrForDialogs } from '../../../../../scripts/popup.js';
 
 const GROUPS = {
@@ -196,7 +197,7 @@ const PAGES = [
     ['wi', '打开世界书', 'book-marked', 'orange', 'world info lorebook'],
     ['persona', '打开人设', 'contact', 'pink', 'persona 用户'],
     ['bg', '打开背景', 'image', 'teal', 'background 壁纸'],
-    ['look', '打开外观', 'palette', 'purple', '强调色 字号 行宽 聊天样式'],
+    ['look', '打开外观', 'palette', 'purple', '浅色 深色 强调色 字号 行宽 聊天样式'],
     ['user', '打开通用设置', 'settings', 'gray', '主题 界面 user settings'],
     ['ext', '打开扩展', 'puzzle', 'red', 'extensions 插件'],
 ];
@@ -229,6 +230,9 @@ function actionItems() {
     add('导入角色卡', 'file-input', 'green', () => clickSt('#character_import_button'), { kw: 'import character' });
     add('新建群组', 'users', 'green', () => openRightMenu('#rm_button_group_chats'), { kw: 'create group 群聊' });
     for (const [page, title, ic, color, kw] of PAGES) add(title, ic, color, () => openSettings(page), { kw: '设置 ' + kw, common: page === 'look' });
+    const light = document.body.dataset.ag2Scheme === 'light';
+    add(light ? '切换到深色外观' : '切换到浅色外观', light ? 'moon' : 'sun', 'indigo', () => setAppearance('scheme', light ? 'dark' : 'light'),
+        { kw: '外观 浅色 深色 亮色 暗色 白天 夜间 日夜 light dark mode appearance' });
     // 切换主题: ST's own #themes select (index.js tears the shell down when it leaves AG2)
     const curTheme = ctx().powerUserSettings?.theme;
     for (const o of document.querySelectorAll('#themes option')) {

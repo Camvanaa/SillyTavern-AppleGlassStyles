@@ -14,13 +14,13 @@
 // group_edit of the open group. Anything else → ask ST to re-select (its own
 // #rm_button_selected_ch) and show a neutral placeholder meanwhile.
 
-import { icon } from './icons.js?v=20261117TT15';
-import { openMenu, closeMenu } from './menu.js?v=20261117TT15';
-import { local } from './store.js?v=20261117TT15';
-import { ctx, h, guard, clickSt, isDesktop, INSP_ID, setInspector, restoreInspectorPin, getCurrentChatId, summary, toDate, isFloatingOpen, flag } from './util.js?v=20261117TT15';
+import { icon } from './icons.js?v=20261126TT16';
+import { openMenu, closeMenu } from './menu.js?v=20261126TT16';
+import { local } from './store.js?v=20261126TT16';
+import { ctx, h, guard, clickSt, isDesktop, INSP_ID, setInspector, restoreInspectorPin, getCurrentChatId, toDate, isFloatingOpen, flag } from './util.js?v=20261126TT16';
 // linked to the running shell? (util.current)
-export { SHELL } from './util.js?v=20261117TT15';
-import { guarded } from './index.js?v=20261117TT15';
+export { SHELL } from './util.js?v=20261126TT16';
+import { guarded } from './index.js?v=20261126TT16';
 import { openGroupId } from '../../../../group-chats.js';
 
 let panel = null;
@@ -102,18 +102,35 @@ export function mount() {
     $id('tags_div')?.prepend(name);
     $id('tagList')?.after(addTag);
 
-    const card = (wrapId, id, title, extra) => {
+    // Summary: clamped preview; a tap (Enter / Space) reads the whole text in place.
+    const card = (wrapId, id, title, extra, field) => {
         const top = node('div', 'ag2-insp-card-head', id + '-head');
         top.innerHTML = `<span class="ag2-insp-card-t">${title}</span>${extra}`;
-        const sum = node('div', 'ag2-insp-sum', id + '-sum');
-        $id(wrapId)?.prepend(top, sum);
-        return { top, sum };
+        const box = node('div', 'ag2-insp-sumbox', id + '-box');
+        const sum = h('div', 'ag2-insp-sum');
+        sum.id = id + '-sum';
+        sum.dataset.ag2Act = 'expand';
+        sum.dataset.field = field;
+        sum.tabIndex = 0;
+        sum.setAttribute('role', 'button');
+        sum.setAttribute('aria-expanded', 'false');
+        sum.addEventListener('keydown', guarded(e => {
+            if ((e.key === 'Enter' || e.key === ' ') && sum.getAttribute('role') === 'button') {
+                e.preventDefault();
+                toggleExpand(field);
+            }
+        }));
+        const more = h('span', 'ag2-insp-more', '更多');
+        more.setAttribute('aria-hidden', 'true');
+        box.append(sum, more);
+        $id(wrapId)?.prepend(top, box);
+        return { top, box, sum, cut: false };
     };
     const desc = card('descriptionWrapper', 'ag2-insp-desc', '角色描述',
-        '<button type="button" class="ag2-insp-link" data-ag2-act="edit" data-field="desc">编辑</button>');
+        '<button type="button" class="ag2-insp-link" data-ag2-act="edit" data-field="desc">编辑</button>', 'desc');
     const first = card('firstMessageWrapper', 'ag2-insp-first', '开场白',
         '<button type="button" class="ag2-insp-link" data-ag2-act="edit" data-field="first">编辑</button>'
-        + '<button type="button" class="ag2-insp-link" data-ag2-act="alt"></button>');
+        + '<button type="button" class="ag2-insp-link" data-ag2-act="alt"></button>', 'first');
 
     const links = node('div', 'ag2-insp-links', 'ag2-insp-links');
     links.innerHTML = [
@@ -152,6 +169,10 @@ export function mount() {
         if (el) mo.observe(el, { childList: true, characterData: true, subtree: true });
     }
     observers.push(mo);
+    // Width changes (rotation, panel resize) can cut or uncut a summary.
+    const ro = new ResizeObserver(guarded(() => measureSoon()));
+    for (const c of [desc, first]) ro.observe(c.sum);
+    observers.push(ro);
     mq = window.matchMedia('(min-width: 1001px)');
     mq.addEventListener('change', onMq);
     sync();
@@ -172,6 +193,8 @@ export function unmount() {
     mq?.removeEventListener('change', onMq);
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
+    if (clampRaf) cancelAnimationFrame(clampRaf);
+    clampRaf = 0;
     panel?.removeEventListener('click', onClick);
     $id('tags_div')?.removeEventListener('focusout', onTagFocusOut);
     nodes.forEach(n => n.remove());
@@ -261,8 +284,12 @@ function renderChar(c) {
     const editing = panel.dataset.ag2Edit;
     const descText = $id('description_textarea')?.value ?? ch.description ?? '';
     const firstText = $id('firstmessage_textarea')?.value ?? ch.first_mes ?? '';
-    if (editing !== 'desc') ui.desc.sum.textContent = summary(descText, 600) || '（没有描述）';
-    if (editing !== 'first') ui.first.sum.textContent = summary(firstText, 300) || '（没有开场白）';
+    if (ui.charKey !== ch.avatar) {
+        ui.charKey = ch.avatar;
+        for (const card of [ui.desc, ui.first]) setOpen(card, false);
+    }
+    if (editing !== 'desc') fillSummary(ui.desc, descText, 600, '（没有描述）');
+    if (editing !== 'first') fillSummary(ui.first, firstText, 300, '（没有开场白）');
     ui.desc.top.querySelector('[data-ag2-act="edit"]').textContent = editing === 'desc' ? '完成' : '编辑';
     ui.first.top.querySelector('[data-ag2-act="edit"]').textContent = editing === 'first' ? '完成' : '编辑';
     const alts = Array.isArray(ch.data?.alternate_greetings) ? ch.data.alternate_greetings.length : 0;
@@ -294,6 +321,78 @@ function personaFor(c, avatar) {
         if ((d?.connections || []).some(x => x?.type === 'character' && x?.id === avatar)) names.push(pu.personas?.[id] || id);
     }
     return names.length ? names.join('、') : '未绑定';
+}
+
+// ------------------------------------------------------------------ summaries
+/** The card text to read: markup, scripts and hidden comments go; line breaks stay. */
+function cardText(text) {
+    return String(text ?? '')
+        .replace(/<!--[\s\S]*?(-->|$)/g, '')
+        .replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')
+        .replace(/<br\s*\/?>|<\/(p|div|li|tr|h[1-6])>/gi, '\n')
+        .replace(/<[^>]*>/g, '')
+        .replace(/^[ \t]*```.*$/gm, '')
+        .replace(/^[ \t]*(#{1,6}|>)[ \t]?/gm, '')
+        .replace(/[*~`]+/g, '')
+        .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+        .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function fillSummary(card, raw, max, empty) {
+    const full = cardText(raw);
+    const flat = full.replace(/\s+/g, ' ');
+    card.cut = flat.length > max;
+    const text = card.box.hasAttribute('data-ag2-open') ? full : (card.cut ? flat.slice(0, max) + '…' : flat);
+    if (card.sum.textContent !== (text || empty)) {
+        card.sum.textContent = text || empty;
+        measureSoon();
+    }
+}
+
+function setOpen(card, open) {
+    card.box.toggleAttribute('data-ag2-open', open);
+    measureSoon();
+}
+
+let clampRaf = 0;
+function measureSoon() {
+    if (!clampRaf) clampRaf = requestAnimationFrame(guarded(measureClamp));
+}
+
+/** “更多” and the tap target only where the preview hides text (clamped or cut). */
+function measureClamp() {
+    clampRaf = 0;
+    for (const card of [ui.desc, ui.first]) {
+        if (!card?.box?.isConnected) continue;
+        const open = card.box.hasAttribute('data-ag2-open');
+        const s = card.sum;
+        const more = !open && (card.cut || s.scrollHeight > s.clientHeight + 1);
+        card.box.toggleAttribute('data-ag2-more', more);
+        if (open || more) {
+            s.setAttribute('role', 'button');
+            s.tabIndex = 0;
+            s.setAttribute('aria-expanded', String(open));
+            s.title = open ? '收起' : '展开全文';
+        } else {
+            s.removeAttribute('role');
+            s.removeAttribute('tabindex');
+            s.removeAttribute('aria-expanded');
+            s.removeAttribute('title');
+        }
+    }
+}
+
+function toggleExpand(field) {
+    const card = field === 'first' ? ui.first : ui.desc;
+    if (!card?.box) return;
+    // a drag that selects text ends in a click: leave the selection alone
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && card.sum.contains(sel.anchorNode)) return;
+    const open = card.box.hasAttribute('data-ag2-open');
+    if (!open && !card.box.hasAttribute('data-ag2-more')) return;
+    setOpen(card, !open);
+    render();
 }
 
 function renderChat(c) {
@@ -453,6 +552,7 @@ const onClick = guarded(e => {
         case 'world': clickSt('#world_button'); break;
         case 'more': moreMenu(b); break;
         case 'edit': toggleEdit(b.dataset.field); break;
+        case 'expand': toggleExpand(b.dataset.field); break;
         case 'alt': clickSt('#firstMessageWrapper .open_alternate_greetings'); break;
         case 'addtag': startTagging(); break;
         case 'persona': clickSt('#char_connections_button'); break;

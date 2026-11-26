@@ -1,6 +1,6 @@
 // Phone message actions use the shared labelled menu. Original buttons stay in place:
 // extensions and ST keep receiving their own delegated click events.
-import { openMenu, closeMenu } from './menu.js?v=20261117TT15';
+import { openMenu, closeMenu } from './menu.js?v=20261126TT16';
 
 let cleanup = null;
 const icons = [
@@ -8,7 +8,12 @@ const icons = [
     ['mes_prompt', 'file-text'], ['mes_hide', 'eye-off'], ['mes_unhide', 'eye-off'],
     ['mes_media_gallery', 'image'], ['mes_media_list', 'list-ordered'], ['mes_embed', 'paperclip'],
     ['mes_swipe_picker', 'history'], ['mes_create_bookmark', 'bookmark'],
+    // third-party buttons by their Font Awesome glyph (柏宝绘 › 生成生图 tag: fa-palette)
+    ['fa-palette', 'palette'], ['fa-image', 'image'], ['fa-images', 'image'],
 ];
+// “生成生图 tag（已有 tag 时重新生成）”: a trailing note does not fit a menu row; the
+// button itself keeps its full title.
+const menuLabel = text => text.replace(/\s*[（(][^（）()]*[）)]\s*$/, '') || text;
 
 export function mount() {
     unmount();
@@ -33,7 +38,7 @@ export function mount() {
             const style = getComputedStyle(button);
             return style.display !== 'none' && style.visibility !== 'hidden' && !button.hidden;
         }).map(button => ({
-            label: button.classList.contains('mes_swipe_picker') ? '查看备选回复' : button.getAttribute('title') || button.getAttribute('aria-label') || button.textContent.trim() || '消息操作',
+            label: button.classList.contains('mes_swipe_picker') ? '查看备选回复' : menuLabel(button.getAttribute('title') || button.getAttribute('aria-label') || button.textContent.trim() || '消息操作'),
             icon: icons.find(([cls]) => button.classList.contains(cls))?.[1] || 'ellipsis',
             disabled: button.matches(':disabled, .disabled, [aria-disabled="true"]'),
             onSelect: () => { if (button.isConnected && !button.matches(':disabled, .disabled, [aria-disabled="true"]')) button.click(); },

@@ -19,7 +19,7 @@ const NATIVE_CLASSES = ['bubblechat', 'documentstyle'];
 const THEME_NAMES = ['Apple Glass Dark', 'Apple Glass 2'];
 const AG2_THEME = 'Apple Glass 2';
 // Keep in sync with BUILD in shell/index.js (tools/ag2/bump-build.sh updates both).
-const SHELL_BUILD = '20261117TT15';
+const SHELL_BUILD = '20261126TT16';
 const STYLE_KEY = 'apGlass.chatStyle';
 
 function themeActive() {
@@ -245,7 +245,12 @@ async function syncShell() {
         try { shellMod?.disable?.(); } catch { /* */ }
         if (!shellLoadFailed) {
             shellLoadFailed = true;
-            window.toastr?.error?.('Apple Glass 2 外壳加载失败，已使用原生布局。', 'Apple Glass 2');
+            // An older or modified tavern lacks an export the shell imports (Chrome / Firefox / Safari wording).
+            const m = /export named '([\w$]+)'|import not found: ([\w$]+)|binding name '([\w$]+)'/.exec(String(e?.message || ''));
+            const name = m && (m[1] || m[2] || m[3]);
+            window.toastr?.error?.(name
+                ? `当前酒馆版本缺少外壳需要的接口（${name}），已使用原生布局。请将 SillyTavern 更新到最新正式版。`
+                : 'Apple Glass 2 外壳加载失败，已使用原生布局。', 'Apple Glass 2', { timeOut: 10000 });
         }
     }
 }

@@ -8,12 +8,13 @@
 // utils.toggleDrawer), scrolls it into view inside the drawer and flashes an accent ring.
 
 import { toggleDrawer as stToggleInline } from '../../../../utils.js';
-import { SET_PANELS } from './util.js?v=20261117TT15';
+import { SET_PANELS } from './util.js?v=20261126TT16';
 // linked to the running shell? (util.current)
-export { SHELL } from './util.js?v=20261117TT15';
+export { SHELL } from './util.js?v=20261126TT16';
 
 /** Shell-built pages: static entries (their DOM is rendered on demand). */
 const SHELL_ITEMS = [
+    { page: 'look', group: '配色', label: '外观（浅色 / 深色）', sel: '.ag2-schemes', kw: '浅色 深色 自动 亮色 暗色 白天 夜间 日夜 日间模式 夜间模式 light dark mode appearance' },
     { page: 'look', group: '聊天样式', label: '聊天样式', sel: '.ag2-styles', kw: '气泡 文档 回声 低语 涟漪 轻声 阅读 chat style' },
     { page: 'look', group: '强调色', label: '强调色', sel: '.ag2-swatches', kw: '颜色 主题色 accent' },
     { page: 'look', group: '强调色', label: '聊天背景', sel: '[data-act="bg"]', kw: '背景 壁纸 background' },

@@ -19,14 +19,14 @@
 // the sheet below the head (same CSS variables as the window). Drag the grabber / head down
 // to dismiss.
 
-import { ctx, h, guard, closeSelect2s, toggleDrawer, SET_PANELS, pageOfPanel, isPhone, thumb, personaAvatar, nativeSelectOpen, paintRanges, paintOneRange, current, flag } from './util.js?v=20261117TT15';
+import { ctx, h, guard, closeSelect2s, toggleDrawer, SET_PANELS, pageOfPanel, isPhone, thumb, personaAvatar, nativeSelectOpen, paintRanges, paintOneRange, current, flag } from './util.js?v=20261126TT16';
 // linked to the running shell? (util.current)
-export { SHELL } from './util.js?v=20261117TT15';
-import { icon } from './icons.js?v=20261117TT15';
-import { local, appearance, setAppearance, ACCENTS, READ_SIZE, READ_WIDTH } from './store.js?v=20261117TT15';
-import { isMenuOpen } from './menu.js?v=20261117TT15';
-import { renderUpdates } from './updates.js?v=20261117TT15';
-import { isTauri, renderTauriSettings } from './tauri-settings.js?v=20261117TT15';
+export { SHELL } from './util.js?v=20261126TT16';
+import { icon } from './icons.js?v=20261126TT16';
+import { local, appearance, setAppearance, ACCENTS, READ_SIZE, READ_WIDTH } from './store.js?v=20261126TT16';
+import { isMenuOpen } from './menu.js?v=20261126TT16';
+import { renderUpdates } from './updates.js?v=20261126TT16';
+import { isTauri, renderTauriSettings } from './tauri-settings.js?v=20261126TT16';
 
 const PAGES = [
     { id: 'api', name: '连接', icon: 'plug', tile: 'green', group: 0, lead: '选择 API 来源，填写地址、密钥和模型。' },
@@ -35,7 +35,7 @@ const PAGES = [
     { id: 'wi', name: '世界书', icon: 'book-marked', tile: 'orange', group: 1, lead: '按关键词把设定注入对话。可以绑定到角色、对话或全局。' },
     { id: 'persona', name: '人设', icon: 'contact', tile: 'pink', group: 1, lead: '你在对话里的身份：名字、头像和描述。' },
     { id: 'bg', name: '背景', icon: 'image', tile: 'teal', group: 1, lead: '聊天背景图片。可以上传，也可以为单个对话单独设置。' },
-    { id: 'look', name: '外观', icon: 'palette', tile: 'purple', group: 2, lead: '聊天样式、强调色和阅读排版。改动即时生效，无需保存。' },
+    { id: 'look', name: '外观', icon: 'palette', tile: 'purple', group: 2, lead: '浅色与深色、聊天样式、强调色和阅读排版。改动即时生效，无需保存。' },
     { id: 'user', name: '通用', icon: 'settings', tile: 'gray', group: 2, lead: '主题、界面行为、聊天选项与快捷操作。' },
     { id: 'ext', name: '扩展', icon: 'puzzle', tile: 'red', group: 2, lead: '已安装的扩展和它们的设置。' },
     { id: 'about', name: '关于', icon: 'info', tile: 'gray', group: 3, lead: 'SillyTavern 与 Apple Glass 2 的版本信息。' },
@@ -342,7 +342,7 @@ let results = [];
 
 const loadSearch = async () => {
     if (!searchMod) {
-        const mod = current(await import('./search.js?v=20261117TT15'));
+        const mod = current(await import('./search.js?v=20261126TT16'));
         if (!mod) return null;
         mod.init(PAGES.map(({ id, name, lead }) => ({ id, name, lead })));
         searchMod = mod;
@@ -1094,8 +1094,22 @@ function styleThumb(i) {
     }
 }
 
+// 外观 thumbnails paint their own scheme (fixed colours), whatever the current one is.
+const SCHEME_TEXT = [['light', '浅色'], ['dark', '深色'], ['auto', '自动']];
+const schemeWin = k => `<i class="ag2-sch-win ag2-sch-${k}"><i class="ag2-sch-side"></i><i class="ag2-sch-main"><i></i><i></i><i class="ag2-sch-acc"></i></i></i>`;
+const schemeThumb = k => k === 'auto' ? schemeWin('light') + schemeWin('dark ag2-sch-half') : schemeWin(k);
+
 function renderLook(body) {
     body.innerHTML = `
+        <div class="ag2-set-gtitle">配色</div>
+        <div class="ag2-set-group">
+            <div class="ag2-set-row">
+                <div class="ag2-set-lab">外观<small>自动：跟随系统的浅色 / 深色设置</small></div>
+                <div class="ag2-schemes" role="radiogroup" aria-label="外观">
+                    ${SCHEME_TEXT.map(([k, n]) => `<button type="button" class="ag2-sch" role="radio" data-scheme="${k}"><span class="ag2-sch-th" aria-hidden="true">${schemeThumb(k)}</span><span>${n}</span></button>`).join('')}
+                </div>
+            </div>
+        </div>
         <div class="ag2-set-gtitle">聊天样式</div>
         <div class="ag2-set-group">
             <div class="ag2-styles" role="radiogroup" aria-label="聊天样式">
@@ -1147,6 +1161,7 @@ function syncLook(body = root?.querySelector('.ag2-set-body')) {
     const style = Number($('#chat_display').val() ?? 0);
     for (const b of body.querySelectorAll('.ag2-sty')) b.setAttribute('aria-checked', String(Number(b.dataset.style) === style));
     for (const b of body.querySelectorAll('.ag2-sw')) b.setAttribute('aria-checked', String(b.dataset.accent === a.accent));
+    for (const b of body.querySelectorAll('.ag2-sch')) b.setAttribute('aria-checked', String(b.dataset.scheme === a.scheme));
     const size = body.querySelector('[data-k="readSize"]');
     const width = body.querySelector('[data-k="readWidth"]');
     size.value = a.readSize;
@@ -1196,6 +1211,8 @@ function onLookClick(e) {
     }
     const swatch = t.closest('.ag2-sw');
     if (swatch) { setAppearance('accent', swatch.dataset.accent); syncLook(); return; }
+    const scheme = t.closest('.ag2-sch');
+    if (scheme) { setAppearance('scheme', scheme.dataset.scheme); syncLook(); return; }
     if (t.closest('[data-act="bg"]')) { go('bg'); return; }
     const sw = t.closest('.ag2-switch');
     if (sw && !sw.disabled) {

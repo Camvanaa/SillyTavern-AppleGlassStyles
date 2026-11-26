@@ -14,14 +14,14 @@
 // keyboard's top edge.
 // State: localStorage ag2.phPage = list | chat (per device, §9.1).
 
-import { icon } from './icons.js?v=20261117TT15';
-import { openMenu, closeMenu, isMenuOpen } from './menu.js?v=20261117TT15';
-import { local } from './store.js?v=20261117TT15';
-import { ctx, h, guard, getCurrentChatId, openSettings, setInspector, inspectorModule, openPalette, clickSt, flag } from './util.js?v=20261117TT15';
+import { icon } from './icons.js?v=20261126TT16';
+import { openMenu, closeMenu, isMenuOpen } from './menu.js?v=20261126TT16';
+import { local } from './store.js?v=20261126TT16';
+import { ctx, h, guard, getCurrentChatId, openSettings, setInspector, inspectorModule, openPalette, clickSt, flag } from './util.js?v=20261126TT16';
 // linked to the running shell? (util.current)
-export { SHELL } from './util.js?v=20261117TT15';
-import { chatMenuItems } from './chrome.js?v=20261117TT15';
-import { segment, setSegment } from './sidebar.js?v=20261117TT15';
+export { SHELL } from './util.js?v=20261126TT16';
+import { chatMenuItems } from './chrome.js?v=20261126TT16';
+import { segment, setSegment } from './sidebar.js?v=20261126TT16';
 
 const TABS = [['chats', '对话', 'messages-square'], ['chars', '角色', 'users'], ['wi', '世界书', 'book-open'], ['settings', '设置', 'settings']];
 const SEG_TITLE = { chats: '对话', chars: '角色', groups: '群组' };

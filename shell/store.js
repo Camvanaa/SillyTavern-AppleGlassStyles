@@ -1,6 +1,6 @@
 // Apple Glass 2 shell — state storage (DESIGN §9.1 “状态存储”).
 //   localStorage `ag2.*`            per device: sidebar collapsed, sidebar segment, inspector, phone page
-//   extension_settings.appleGlass2  per account: pins, accent, reading size/width, meta display
+//   extension_settings.appleGlass2  per account: pins, accent, scheme, reading size/width, meta display
 // Never touches ST's NavLockOn / NavOpened / LNavLockOn keys.
 
 const LS_PREFIX = 'ag2.';
@@ -51,6 +51,7 @@ export const ACCENTS = [
 export const READ_SIZE = { min: 14, max: 20, step: 1, def: 16 };
 export const READ_WIDTH = { min: 560, max: 960, step: 20, def: 720 };
 export const META = ['always', 'hover', 'hide'];
+export const SCHEMES = ['dark', 'light', 'auto'];
 
 const clampNum = (v, r) => {
     const n = Number(v);
@@ -64,7 +65,21 @@ export function appearance() {
         readSize: clampNum(s.readSize, READ_SIZE),
         readWidth: clampNum(s.readWidth, READ_WIDTH),
         meta: META.includes(s.meta) ? s.meta : 'hover',
+        scheme: SCHEMES.includes(s.scheme) ? s.scheme : 'dark',
     };
+}
+
+// 自动 follows the system; the listener lives for the page and only acts while the
+// shell owns <body> (data-ag2-accent is present exactly then).
+let lightMq = null;
+function systemLight() {
+    if (!lightMq) {
+        lightMq = window.matchMedia('(prefers-color-scheme: light)');
+        lightMq.addEventListener?.('change', () => {
+            if (document.body.dataset.ag2Accent && appearance().scheme === 'auto') applyAppearance();
+        });
+    }
+    return lightMq.matches;
 }
 
 export function applyAppearance() {
@@ -72,6 +87,7 @@ export function applyAppearance() {
     const b = document.body;
     b.dataset.ag2Accent = a.accent;
     b.dataset.ag2Meta = a.meta;
+    b.dataset.ag2Scheme = a.scheme === 'light' || (a.scheme === 'auto' && systemLight()) ? 'light' : 'dark';
     b.style.setProperty('--ag2-read-size', a.readSize + 'px');
     b.style.setProperty('--ag2-read-width', a.readWidth + 'px');
     return a;
@@ -81,6 +97,7 @@ export function clearAppearance() {
     const b = document.body;
     delete b.dataset.ag2Accent;
     delete b.dataset.ag2Meta;
+    delete b.dataset.ag2Scheme;
     delete b.dataset.ag2Set;
     b.style.removeProperty('--ag2-read-size');
     b.style.removeProperty('--ag2-read-width');
